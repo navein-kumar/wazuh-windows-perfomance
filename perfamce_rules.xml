@@ -1,0 +1,172 @@
+<!-- Windows Performance Monitoring Rules -->
+<!-- Add this to /var/ossec/etc/rules/local_rules.xml -->
+
+<group name="windows_performance,performance_monitor">
+
+  <!-- Base rule for Windows performance data -->
+  <rule id="100600" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="hostname">\.+</field>
+    <field name="cpu_percent">\.+</field>
+    <field name="memory_used_percent">\.+</field>
+    <field name="disk_used_percent">\.+</field>
+    <description>Windows performance metrics collected on $(hostname)</description>
+  </rule>
+
+  <!-- High CPU Usage Alert -->
+  <rule id="100601" level="7">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="cpu_percent">9[0-9]|100</field>
+    <description>High CPU usage detected: $(cpu_percent)% on $(hostname)</description>
+    <group>performance_alert,high_cpu</group>
+  </rule>
+
+  <!-- Critical CPU Usage Alert -->
+  <rule id="100602" level="12">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="cpu_percent">9[5-9]|100</field>
+    <description>Critical CPU usage detected: $(cpu_percent)% on $(hostname)</description>
+    <group>performance_critical,high_cpu</group>
+  </rule>
+
+  <!-- High Memory Usage Alert -->
+  <rule id="100603" level="7">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="memory_used_percent">8[5-9]\..*|9[0-9]\..*|100</field>
+    <description>High memory usage detected: $(memory_used_percent)% ($(memory_used_gb)GB/$(memory_total_gb)GB) on $(hostname)</description>
+    <group>performance_alert,high_memory</group>
+  </rule>
+
+  <!-- Critical Memory Usage Alert -->
+  <rule id="100604" level="12">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="memory_used_percent">9[5-9]\..*|100</field>
+    <description>Critical memory usage detected: $(memory_used_percent)% ($(memory_used_gb)GB/$(memory_total_gb)GB) on $(hostname)</description>
+    <group>performance_critical,high_memory</group>
+  </rule>
+
+  <!-- High Disk Usage Alert -->
+  <rule id="100605" level="7">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="disk_used_percent">8[0-9]\..*|9[0-4]\..*</field>
+    <description>High disk usage detected: $(disk_used_percent)% ($(disk_used_gb)GB/$(disk_total_gb)GB) on $(hostname)</description>
+    <group>performance_alert,high_disk</group>
+  </rule>
+
+  <!-- Critical Disk Usage Alert -->
+  <rule id="100606" level="12">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="disk_used_percent">9[5-9]\..*|100</field>
+    <description>Critical disk usage detected: $(disk_used_percent)% ($(disk_used_gb)GB/$(disk_total_gb)GB) on $(hostname)</description>
+    <group>performance_critical,high_disk</group>
+  </rule>
+
+  <!-- Low Memory Available Alert -->
+  <rule id="100607" level="10">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="memory_free_gb">^[0-1]\..*|^2\.0[0-9]</field>
+    <description>Low memory available: Only $(memory_free_gb)GB free on $(hostname)</description>
+    <group>performance_alert,low_memory</group>
+  </rule>
+
+  <!-- Low Disk Space Alert -->
+  <rule id="100608" level="10">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="disk_free_gb">^[0-4]\..*|^5\.0[0-9]</field>
+    <description>Low disk space: Only $(disk_free_gb)GB free on $(hostname)</description>
+    <group>performance_alert,low_disk</group>
+  </rule>
+
+  <!-- System Performance Degradation (Multiple Resources) -->
+  <rule id="100609" level="10" frequency="3" timeframe="300">
+    <if_matched_sid>100601</if_matched_sid>
+    <if_matched_sid>100603</if_matched_sid>
+    <if_matched_sid>100605</if_matched_sid>
+    <description>System performance degradation detected: Multiple high resource usage on $(hostname)</description>
+    <group>performance_critical,system_degradation</group>
+  </rule>
+
+  <!-- Network Adapter Issues -->
+  <rule id="100610" level="5">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="network_adapters_active">^[0-1]$</field>
+    <description>Low network adapter count: Only $(network_adapters_active) active adapters on $(hostname)</description>
+    <group>performance_warning,network_issue</group>
+  </rule>
+
+  <!-- System Recently Rebooted -->
+  <rule id="100611" level="3">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="uptime_hours">^[0-9]\..*|^1[0-9]\..*|^2[0-3]\..*</field>
+    <description>System recently rebooted: Uptime $(uptime_hours) hours on $(hostname)</description>
+    <group>system_info,recent_reboot</group>
+  </rule>
+
+  <!-- Performance Collection Error -->
+  <rule id="100612" level="7">
+    <decoded_as>json</decoded_as>
+    <field name="error_type">performance_collection_failed</field>
+    <description>Performance monitoring error on $(hostname): $(error)</description>
+    <group>performance_error,monitoring_failure</group>
+  </rule>
+
+  <!-- Sustained High CPU Usage -->
+  <rule id="100613" level="10" frequency="5" timeframe="600">
+    <if_matched_sid>100601</if_matched_sid>
+    <description>Sustained high CPU usage: 5+ occurrences in 10 minutes on $(hostname)</description>
+    <group>performance_critical,sustained_high_cpu</group>
+  </rule>
+
+  <!-- Sustained High Memory Usage -->
+  <rule id="100614" level="10" frequency="5" timeframe="600">
+    <if_matched_sid>100603</if_matched_sid>
+    <description>Sustained high memory usage: 5+ occurrences in 10 minutes on $(hostname)</description>
+    <group>performance_critical,sustained_high_memory</group>
+  </rule>
+
+  <!-- System Resource Recovery -->
+  <rule id="100615" level="3">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="cpu_percent">^[1-6][0-9]$|^[1-9]$</field>
+    <field name="memory_used_percent">^[1-7][0-9]\..*|^[1-9]$</field>
+    <field name="disk_used_percent">^[1-7][0-9]\..*|^[1-9]$</field>
+    <same_source_ip />
+    <description>System resources normalized on $(hostname): CPU $(cpu_percent)%, Memory $(memory_used_percent)%, Disk $(disk_used_percent)%</description>
+    <group>performance_info,resource_recovery</group>
+  </rule>
+
+  <!-- Very High CPU Burst -->
+  <rule id="100616" level="8">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="cpu_percent">9[0-4]</field>
+    <description>Very high CPU burst: $(cpu_percent)% on $(hostname)</description>
+    <group>performance_warning,high_cpu_burst</group>
+  </rule>
+
+  <!-- Memory Usage Warning -->
+  <rule id="100617" level="5">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="memory_used_percent">8[0-4]\..*</field>
+    <description>Memory usage warning: $(memory_used_percent)% on $(hostname)</description>
+    <group>performance_warning,memory_warning</group>
+  </rule>
+
+  <!-- Disk Space Warning -->
+  <rule id="100618" level="5">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="disk_used_percent">7[5-9]\..*</field>
+    <description>Disk space warning: $(disk_used_percent)% on $(hostname)</description>
+    <group>performance_warning,disk_warning</group>
+  </rule>
+
+  <!-- System Overload (All Resources High) -->
+  <rule id="100619" level="12">
+    <if_matched_sid>100600</if_matched_sid>
+    <field name="cpu_percent">9[0-9]|100</field>
+    <field name="memory_used_percent">9[0-9]\..*|100</field>
+    <field name="disk_used_percent">9[0-9]\..*|100</field>
+    <description>System overload: All resources critical on $(hostname) - CPU: $(cpu_percent)%, Memory: $(memory_used_percent)%, Disk: $(disk_used_percent)%</description>
+    <group>performance_critical,system_overload</group>
+  </rule>
+
+</group>
