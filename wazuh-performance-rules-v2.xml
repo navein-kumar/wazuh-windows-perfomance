@@ -1,0 +1,40 @@
+<!--
+  Wazuh Windows Performance Monitor Rules - v2 Multi-Drive
+  Place this file in: /var/ossec/etc/rules/local_rules.xml
+  Or create new file: /var/ossec/etc/rules/windows_performance_rules.xml
+
+  After adding rules, restart Wazuh manager:
+  systemctl restart wazuh-manager
+-->
+
+<group name="windows_performance,performance_monitor">
+
+  <!-- Base rule for Windows performance data -->
+  <rule id="100900" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="wazuhlogtype">wazuhperformance</field>
+    <description>Windows performance metrics collected on $(hostname)</description>
+  </rule>
+
+  <!-- High CPU Usage Alert (70-100%) -->
+  <rule id="100901" level="10">
+    <if_sid>100900</if_sid>
+    <field name="cpu_used_percent">^7\d|^8\d|^9\d|^100</field>
+    <description>High CPU usage $(cpu_used_percent)% detected on $(hostname)</description>
+  </rule>
+
+  <!-- High Memory Usage Alert (70-100%) -->
+  <rule id="100902" level="10">
+    <if_sid>100900</if_sid>
+    <field name="memory_used_percent">^7\d|^8\d|^9\d|^100</field>
+    <description>High Memory usage $(memory_used_percent)% detected on $(hostname)</description>
+  </rule>
+
+  <!-- High Disk Usage Alert - ANY Drive (70-100%) -->
+  <rule id="100903" level="10">
+    <if_sid>100900</if_sid>
+    <field name="disk_highest_percent">^7\d|^8\d|^9\d|^100</field>
+    <description>High Disk usage $(disk_highest_percent)% on drive $(disk_alert_drive): detected on $(hostname)</description>
+  </rule>
+
+</group>

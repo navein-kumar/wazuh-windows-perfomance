@@ -1,0 +1,12 @@
+<!--
+  Wazuh Agent Configuration for Windows Performance Monitor
+  Add this configuration to your Wazuh agent's ossec.conf file
+  Location: C:\Program Files (x86)\ossec-agent\ossec.conf
+
+  Add inside the <ossec_config> section
+-->
+
+<localfile>
+  <log_format>json</log_format>
+  <location>C:\WazuhPerformance\logs\performance_*.json</location>
+</localfile>
