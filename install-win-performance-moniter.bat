@@ -53,32 +53,37 @@ echo     }
 echo.
 echo     # Get CPU utilization
 echo     $cpuPercent = 0
+echo     $cpuCores = 0
 echo     try {
 echo         $cpu = Get-WmiObject -Class Win32_Processor ^| Select-Object -First 1
+echo         $cpuCores = $cpu.NumberOfLogicalProcessors
 echo         if ^($cpu.LoadPercentage^) {
 echo             $cpuPercent = $cpu.LoadPercentage
 echo         } else {
 echo             # Fallback to performance counter
 echo             $perfCounter = Get-Counter "\Processor^(_Total^)\%% Processor Time" -SampleInterval 1 -MaxSamples 1
-echo             $cpuPercent = [math]::Round^($perfCounter.CounterSamples[0].CookedValue, 2^)
+echo             $cpuPercent = [math]::Round^($perfCounter.CounterSamples[0].CookedValue, 0^)
 echo         }
 echo     } catch {
 echo         $cpuPercent = 0
 echo     }
+echo     $cpuFreePercent = 100 - $cpuPercent
+echo     $cpuUsedCore = [math]::Round^(^($cpuPercent / 100^) * $cpuCores, 0^)
+echo     $cpuFreeCore = $cpuCores - $cpuUsedCore
 echo.
 echo     # Get Memory information
 echo     $memory = Get-WmiObject -Class Win32_OperatingSystem
 echo     $memTotalKB = $memory.TotalVisibleMemorySize
 echo     $memFreeKB = $memory.FreePhysicalMemory
 echo     $memUsedKB = $memTotalKB - $memFreeKB
-echo     $memUsedPercent = [math]::Round^(^($memUsedKB / $memTotalKB^) * 100, 2^)
+echo     $memUsedPercent = [math]::Round^(^($memUsedKB / $memTotalKB^) * 100, 0^)
 echo.
 echo     # Get Disk information for C: drive
 echo     $disk = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'"
-echo     $diskTotalGB = [math]::Round^($disk.Size / 1GB, 2^)
-echo     $diskFreeGB = [math]::Round^($disk.FreeSpace / 1GB, 2^)
+echo     $diskTotalGB = [math]::Round^($disk.Size / 1GB, 0^)
+echo     $diskFreeGB = [math]::Round^($disk.FreeSpace / 1GB, 0^)
 echo     $diskUsedGB = $diskTotalGB - $diskFreeGB
-echo     $diskUsedPercent = [math]::Round^(^($diskUsedGB / $diskTotalGB^) * 100, 2^)
+echo     $diskUsedPercent = [math]::Round^(^($diskUsedGB / $diskTotalGB^) * 100, 0^)
 echo.
 echo     # Get Network adapters
 echo     $networkAdapters = Get-WmiObject -Class Win32_NetworkAdapter -Filter "NetConnectionStatus=2"
@@ -88,25 +93,29 @@ echo     # Get System uptime
 echo     $bootTime = ^(Get-WmiObject Win32_OperatingSystem^).LastBootUpTime
 echo     $bootTimeFormatted = [Management.ManagementDateTimeConverter]::ToDateTime^($bootTime^)
 echo     $uptime = ^(Get-Date^) - $bootTimeFormatted
-echo     $uptimeHours = [math]::Round^($uptime.TotalHours, 2^)
+echo     $uptimeHours = [math]::Round^($uptime.TotalHours, 0^)
 echo.
-echo     # Create comprehensive performance object
-echo     $perfData = @{
-echo         timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
-echo         hostname = $env:COMPUTERNAME
-echo         domain = $env:USERDOMAIN
-echo         os_version = $memory.Caption
-echo         cpu_percent = $cpuPercent
-echo         memory_total_gb = [math]::Round^($memTotalKB / 1MB, 2^)
-echo         memory_used_gb = [math]::Round^($memUsedKB / 1MB, 2^)
-echo         memory_free_gb = [math]::Round^($memFreeKB / 1MB, 2^)
-echo         memory_used_percent = $memUsedPercent
-echo         disk_total_gb = $diskTotalGB
-echo         disk_used_gb = $diskUsedGB
-echo         disk_free_gb = $diskFreeGB
-echo         disk_used_percent = $diskUsedPercent
-echo         network_adapters_active = $activeNetworkCount
-echo         uptime_hours = $uptimeHours
+echo     # Create comprehensive performance object with ordered output
+echo     $perfData = [ordered]@{
+echo         "wazuhlogtype" = "wazuhperformance"
+echo         "log_timestamp" = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
+echo         "hostname" = $env:COMPUTERNAME
+echo         "domain" = $env:USERDOMAIN
+echo         "os_version" = $memory.Caption
+echo         "cpu_total_core" = [string]$cpuCores
+echo         "cpu_used_core" = [string]$cpuUsedCore
+echo         "cpu_free_core" = [string]$cpuFreeCore
+echo         "cpu_used_percent" = [string]$cpuPercent
+echo         "memory_total_gb" = [string][math]::Round^($memTotalKB / 1MB, 0^)
+echo         "memory_used_gb" = [string][math]::Round^($memUsedKB / 1MB, 0^)
+echo         "memory_free_gb" = [string][math]::Round^($memFreeKB / 1MB, 0^)
+echo         "memory_used_percent" = [string]$memUsedPercent
+echo         "disk_total_gb" = [string]$diskTotalGB
+echo         "disk_used_gb" = [string]$diskUsedGB
+echo         "disk_free_gb" = [string]$diskFreeGB
+echo         "disk_used_percent" = [string]$diskUsedPercent
+echo         "network_adapters_active" = [string]$activeNetworkCount
+echo         "uptime_hours" = [string]$uptimeHours
 echo     }
 echo.
 echo     # Convert to JSON and write to file
@@ -131,10 +140,10 @@ echo } catch {
 echo     # Error handling - log errors to separate file
 echo     try {
 echo         $errorData = @{
-echo             timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
-echo             hostname = $env:COMPUTERNAME
-echo             error = $_.Exception.Message
-echo             error_type = "performance_collection_failed"
+echo             "log_timestamp" = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
+echo             "hostname" = $env:COMPUTERNAME
+echo             "error" = $_.Exception.Message
+echo             "error_type" = "performance_collection_failed"
 echo         }
 echo         $errorJson = $errorData ^| ConvertTo-Json -Compress
 echo         $errorJson ^| Out-File -FilePath "$logDir\performance_errors_$today.json" -Append -Encoding UTF8
